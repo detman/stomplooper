@@ -2,7 +2,7 @@
 
 import RPi.GPIO as GPIO
 import time, sys
-from threading import Timer
+import threading
 
 redLED = 23
 switch = 21
@@ -18,48 +18,89 @@ RECORDING = 0
 PLAYBACK  = 1
 mode = RECORDING
 playbackPos = -1
-timerThread = 0
+timerThread = None
 
 statusModePressed = 0 # 0 on a PullUp circuit, 1 on a PullDown circuit
 
-history = []
 lastStatus = 1
 lastTime = 0.0
 
-def stop_recording():
-	print("break")
+class playbackThread(threading.Thread): 
+ 
+    def __init__(self): 
+		threading.Thread.__init__(self) 
+		self.stopped = False
+		self.lastHit = 0
+		self.history = []
+		print("init playbackThread")
+
+    def run(self): 
+		print("playback start")
+		i=0;
+		while True:
+			h = self.history[i]
+			if self.stopped:
+				print("playback stopped")
+				return
+			print(i,h)
+			light(h)
+			i = i+1
+			if i == len(self.history):
+				i = 0
+		print("playback finished")
+		self.stopped = True
+
+    def pressed(self): 
+		now = time.time();
+		if self.lastHit != 0:
+			self.history.append(now-self.lastHit)
+			print(len(self.history), " ", self.history[-1]);
+		self.lastHit = now
+
+    def stop(self): 
+		self.stopped = True
+
+playback = None
+
+def start_playback():
+	global playback
+	playback.start()
 
 def switchEvent(channel):
-	global lastStatus, switch, history, mode, lastTime, timerThread
+	global lastStatus, switch, history, mode, lastTime, timerThread, playback
 	eps = 0.01
 	status = 1 - lastStatus
 	lastStatus = status
 	tm = time.time()
 
 	diff = "" if GPIO.input(switch) == status else "DIFF"
-	print(tm-lastTime, " status:", status, " ", diff)
+	#print(tm-lastTime, " status:", status, " ", diff)
 	lastTime = tm
 
 	if status == statusModePressed:
-		if mode == PLAYBACK:
-			mode = RECORDING
-			print( "turned to recording" )
-			history = []
-		else:
-			history.append(tm)
-			timerThread = Timer(1, stop_recording(), ())
-			timerThread.start()
-#	else:
-#		if timerThread != 0:
-#			timerThread.cancel()
+		if playback != None:
+			if playback.is_alive():
+				playback.stop()
+			if playback.stopped: # may be finished or stopped
+				playback = None
+
+		if playback == None:
+			playback = playbackThread()
+
+		playback.pressed()
+		timerThread = threading.Timer(1, start_playback, ())
+		timerThread.daemon = True
+		timerThread.start()
+	else:
+		if timerThread != None:
+			timerThread.cancel()
 
 	GPIO.output(redLED, 1 - status)
 
 GPIO.add_event_detect(switch, GPIO.BOTH, bouncetime=20)
 GPIO.add_event_callback(switch, switchEvent)
 
-def play(duration):
-	print("play ", duration)
+def light(duration):
 	ledDuration = 0.1
 	GPIO.output(redLED, 1)
 	time.sleep( ledDuration )
