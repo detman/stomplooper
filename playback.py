@@ -5,28 +5,30 @@ import threading
 
 class Playback(threading.Thread): 
  
-    def __init__(self, recorder): 
+    def __init__(self, recordings): 
 		threading.Thread.__init__(self) 
 		self.stopped = False
-		self.recorder = recorder
+		self.recordings = recordings
 		print("init playbackThread")
 
     def run(self): 
 		print("playback start")
 		i=0
-		print self.recorder.recordings
-		print i,len(self.recorder.recordings)
+		print self.recordings
+		print i,len(self.recordings)
 		while True:
 			if self.stopped:
 				print("playback stopped")
 				return
-			h = self.recorder.recordings[i]
+			h = self.recordings[i]
 			t1 = time.time()
 			self.play(h)
 			t2 = time.time()
-			time.sleep(h - (t2-t1))
+			rest = h - (t2-t1)
+			if rest > 0:
+				time.sleep(h - (t2-t1))
 			i = i+1
-			if i == len(self.recorder.recordings):
+			if i == len(self.recordings):
 				i = 0
 		print("playback finished")
 		self.stopped = True
