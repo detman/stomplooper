@@ -4,10 +4,12 @@ import threading
 import time
 
 class MomentaryButton(object):
+	debug = 0
 	def __init__(self,pin,statusModePressed, bouncetime):
 		self.pin = pin
 		self.status = 1
 		self.timerThread = None
+		self.timer_timeout = 1.0
 		self.statusModePressed = statusModePressed # 0 on a PullUp circuit, 1 on a PullDown circuit
 
 		def callback(channel):
@@ -16,12 +18,14 @@ class MomentaryButton(object):
 			if gpiostatus == self.status:
 				return
 			self.status = 1 - self.status
-			print self.status
+
+			if MomentaryButton.debug:
+				print self.status
 			if self.status == self.statusModePressed:
 				def timerEvent():
 					self.pressedLong()
 
-				self.timerThread = threading.Timer(1, timerEvent, ())
+				self.timerThread = threading.Timer(self.timer_timeout, timerEvent, ())
 				self.timerThread.daemon = True
 				self.timerThread.start()
 
@@ -36,9 +40,12 @@ class MomentaryButton(object):
 
 
 	def pressed(self):
-		print "pressed"
+		if MomentaryButton.debug:
+			print "pressed"
 	def pressedLong(self):
-		print "pressed long"
+		if MomentaryButton.debug:
+			print "pressed long"
 	def released(self):
-		print "released"
+		if MomentaryButton.debug:
+			print "released"
 
