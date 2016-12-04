@@ -10,19 +10,22 @@ class Playback(threading.Thread):
     def __init__(self, recordings): 
         threading.Thread.__init__(self) 
         self.stopped = False
-        self.recordings = recordings
+        self.recordings = list(recordings) # copy list
         if Playback.debug:
             print("init playbackThread")
 
     def run(self): 
         if Playback.debug:
             print "playback start", self.recordings 
-        i=0
+        i=1
         while True:
             if self.stopped:
                 if Playback.debug:
                     print("playback stopped")
                 return
+
+            if Playback.debug:
+                print("playback ",i)
             h = self.recordings[i]
             t1 = time.time()
             self.play(h)

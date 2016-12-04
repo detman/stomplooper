@@ -9,9 +9,11 @@ from playback import Playback
 from recorder import Recorder
 from momentarybutton import MomentaryButton
 
+switch = 19
+yellowLED = 21
 redLED = 23
-yellowLED = 24
-switch = 21
+
+LONGPRESS_TIMEOUT = 0.3
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(switch, GPIO.IN)
@@ -23,9 +25,10 @@ GPIO.setup(yellowLED, GPIO.OUT)
 GPIO.output(yellowLED, 0)
 
 def playAudio():
-    #subprocess.Popen(["mpg123", "beat1.mp3"])    
+    subprocess.Popen(["mpg123", "-q", "beat2.mp3"])    
     pass
 
+Playback.debug = 1
 class LEDBlinker(Playback):
 
     def play(self,duration):
@@ -55,7 +58,7 @@ class MyButton(MomentaryButton):
                 self.playback = None
         self.recorder.record()
         if 1 == len(self.recorder.recordings):
-            self.timer_timeout = self.recorder.recordings[0] # use first delay for timer timeout
+            self.timer_timeout = min(self.recorder.recordings[0],LONGPRESS_TIMEOUT) # use first delay for timer timeout
 		
 
     def pressedLong(self):
