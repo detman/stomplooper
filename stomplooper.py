@@ -7,13 +7,13 @@ import subprocess
 
 from playback import Playback
 from recorder import Recorder
-from momentarybutton import MomentaryButton
+from footswitch import Footswitch
 
 switch = 19
 yellowLED = 21
 redLED = 23
 
-LONGPRESS_TIMEOUT = 0.3
+RESET_DURATION = 2.0
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(switch, GPIO.IN)
@@ -25,10 +25,10 @@ GPIO.setup(yellowLED, GPIO.OUT)
 GPIO.output(yellowLED, 0)
 
 def playAudio():
-    subprocess.Popen(["mpg123", "-q", "beat2.mp3"])    
+#    subprocess.Popen(["mpg123", "-q", "beat2.mp3"])    
     pass
 
-Playback.debug = 1
+Playback.debug = 0
 class LEDBlinker(Playback):
 
     def play(self,duration):
@@ -38,12 +38,17 @@ class LEDBlinker(Playback):
         time.sleep( ledDuration )
         GPIO.output(redLED, 0)
         
-class MyButton(MomentaryButton):
+class MyButton(Footswitch):
 
-    def __init__(self,pin,statusModePressed, bouncetime):
-        MomentaryButton.__init__(self,pin,statusModePressed, bouncetime)
+    def __init__(self,pin,statusModePressed, bouncetime, timer_timeout):
+        Footswitch.__init__(self,pin,statusModePressed, bouncetime )
         self.recorder = Recorder()
         self.playback = None
+
+        self.lastPressed = 0
+        self.acceptRelease = False
+        self.timerThread = None
+        self.timer_timeout = timer_timeout
 
     def pressed(self):
         print "pressed"
@@ -54,30 +59,57 @@ class MyButton(MomentaryButton):
                 self.playback.stop()
                 GPIO.output(yellowLED,0)
                 self.recorder = Recorder() # create new recorder; drop old recording
-            if self.playback.stopped: # may be finished or stopped
-                self.playback = None
+            self.playback = None
         self.recorder.record()
-        if 1 == len(self.recorder.recordings):
-            self.timer_timeout = min(self.recorder.recordings[0],LONGPRESS_TIMEOUT) # use first delay for timer timeout
-		
 
-    def pressedLong(self):
-        print "pressed long", len(self.recorder.recordings)
-        if len(self.recorder.recordings) > 0:
-            self.playback = LEDBlinker(self.recorder.recordings)
-            self.playback.start()
-            GPIO.output(yellowLED,1)
-        self.recorder = Recorder() # create new recorder; drop old recording and status
+        if len(self.recorder.recordings) > 0 and self.timer_timeout > 0.0:
+            self.startTimer(self.recorder.recordings[0])
 
-    def released(self):
-        print "released"
+    def released(self,duration):
+        print "released", duration
         GPIO.output(redLED, 0)
 
+        self.stopTimer()
+
+        if self.playback != None:
+            return
+
+        if len(self.recorder.recordings) > 0:
+            # if button was pressed more than 2/3 of the first recorded duration, start the playback
+            if duration > 0.66 * self.recorder.recordings[0]:
+                print "start PB in by release", duration
+                self.startPlayback(duration)
+        else:
+            if duration > RESET_DURATION:
+                print "reset"
+                self.recorder = Recorder() # reset
+
+    def startPlayback(self, gap):
+        if self.playback != None:
+            return
+        self.playback = LEDBlinker(self.recorder.recordings,gap)
+        self.playback.start()
+        GPIO.output(yellowLED,1)
+        self.recorder = Recorder() # create new recorder; drop old recording and status
+
+    def startTimer(self,timeout):
+        def timerEvent():
+            self.acceptRelease = False
+            print "start PB by timer", timeout
+            self.startPlayback(timeout)
+
+        self.timerThread = threading.Timer(self.timer_timeout, timerEvent, ())
+        self.timerThread.daemon = True
+        self.timerThread.start()
+
+    def stopTimer(self):
+        if self.timerThread != None:
+             self.timerThread.cancel()
 
 
 ## main
 
-bttn = MyButton(switch,0, 2)
+bttn = MyButton(switch,0, 2, 1.0)
 
 try:
     while True:

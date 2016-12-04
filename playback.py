@@ -5,10 +5,11 @@ import threading
 
 class Playback(threading.Thread): 
  
-    debug = 0 
+    debug = False 
  
-    def __init__(self, recordings): 
+    def __init__(self, recordings,gap): 
         threading.Thread.__init__(self) 
+        self.gap = gap
         self.stopped = False
         self.recordings = list(recordings) # copy list
         if Playback.debug:
@@ -17,8 +18,11 @@ class Playback(threading.Thread):
     def run(self): 
         if Playback.debug:
             print "playback start", self.recordings 
+        time.sleep(max(0,self.recordings[0]-self.gap)) # close gap
         i=1
         while True:
+            if i == len(self.recordings):
+                i = 0
             if self.stopped:
                 if Playback.debug:
                     print("playback stopped")
@@ -34,8 +38,6 @@ class Playback(threading.Thread):
             if rest > 0:
                 time.sleep(h - (t2-t1))
             i = i+1
-            if i == len(self.recordings):
-                i = 0
         if Playback.debug:
             print("playback finished")
         self.stopped = True
