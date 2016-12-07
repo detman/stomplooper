@@ -13,6 +13,8 @@ switch = 19
 yellowLED = 21
 redLED = 23
 
+audiofile = None
+
 RESET_DURATION = 2.0
 
 GPIO.setmode(GPIO.BOARD)
@@ -25,8 +27,10 @@ GPIO.setup(yellowLED, GPIO.OUT)
 GPIO.output(yellowLED, 0)
 
 def playAudio():
-#    subprocess.Popen(["mpg123", "-q", "beat2.mp3"])    
-    pass
+    global audiofile
+    if audiofile != None:
+        #subprocess.Popen(["mpg123", "-q", audiofile])    
+        subprocess.Popen(["aplay", "-q", audiofile])    
 
 Playback.debug = 0
 class LEDBlinker(Playback):
@@ -40,6 +44,7 @@ class LEDBlinker(Playback):
         
 class MyButton(Footswitch):
 
+    debug = True
     def __init__(self,pin,statusModePressed, bouncetime, timer_timeout):
         Footswitch.__init__(self,pin,statusModePressed, bouncetime )
         self.recorder = Recorder()
@@ -51,7 +56,8 @@ class MyButton(Footswitch):
         self.timer_timeout = timer_timeout
 
     def pressed(self):
-        print "pressed"
+        if MyButton.debug: 
+            print "pressed"
         GPIO.output(redLED, 1)
         playAudio()
         if self.playback != None:
@@ -66,7 +72,8 @@ class MyButton(Footswitch):
             self.startTimer(self.recorder.recordings[0])
 
     def released(self,duration):
-        print "released", duration
+        if MyButton.debug: 
+            print "released", duration
         GPIO.output(redLED, 0)
 
         self.stopTimer()
@@ -81,7 +88,8 @@ class MyButton(Footswitch):
                 self.startPlayback(duration)
         else:
             if duration > RESET_DURATION:
-                print "reset"
+                if MyButton.debug: 
+                    print "reset"
                 self.recorder = Recorder() # reset
 
     def startPlayback(self, gap):
@@ -95,7 +103,8 @@ class MyButton(Footswitch):
     def startTimer(self,timeout):
         def timerEvent():
             self.acceptRelease = False
-            print "start PB by timer", timeout
+            if MyButton.debug: 
+                print "start PB by timer", timeout
             self.startPlayback(timeout)
 
         self.timerThread = threading.Timer(self.timer_timeout, timerEvent, ())
@@ -110,6 +119,9 @@ class MyButton(Footswitch):
 ## main
 
 bttn = MyButton(switch,0, 2, 1.0)
+
+if len(sys.argv) > 1:
+    audiofile = sys.argv[1]
 
 try:
     while True:

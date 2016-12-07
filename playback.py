@@ -11,9 +11,42 @@ class Playback(threading.Thread):
         threading.Thread.__init__(self) 
         self.gap = gap
         self.stopped = False
-        self.recordings = list(recordings) # copy list
+        self.recordings = self.harmonize(recordings)
         if Playback.debug:
             print("init playbackThread")
+
+    def harmonize(self, recordings):
+        eps = 0.05
+        harmonized = list(recordings)
+        total = sum(recordings)
+        for i in range(len(harmonized)):
+            f = harmonized[i]
+
+            best = total/4.0
+            if abs(best-f) < eps:
+                harmonized[i] = best
+                print recordings[i], harmonized[i], recordings[i] - harmonized[i], "1/4"
+                continue
+
+            best = total/8.0
+            if abs(best-f) < eps:
+                harmonized[i] = best
+                print recordings[i], harmonized[i], recordings[i] - harmonized[i], "1/8"
+                continue
+
+            best = total/12.0
+            if abs(best-f) < eps:
+                harmonized[i] = best
+                print recordings[i], harmonized[i], recordings[i] - harmonized[i], "1/12"
+                continue
+
+            best = total/16.0
+            if abs(best-f) < eps:
+                harmonized[i] = best
+                print recordings[i], harmonized[i], recordings[i] - harmonized[i], "1/16"
+                continue
+
+        return harmonized
 
     def run(self): 
         if Playback.debug:
